@@ -1,2 +1,2 @@
 # HEASoft-Code
-Code which is used for my independant work using HEASoft.
+Pipeline created to run NICER data through HEASoft
