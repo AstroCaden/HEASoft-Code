@@ -15,7 +15,7 @@
     "reprocess": false,
     "flare_filtering": true,
     "run_steps": {     
-        "download": false,
+        "download": true,
         "process_l2": true,
         "barycorr": true,
         "barycurve": true,
