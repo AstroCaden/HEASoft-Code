@@ -1,0 +1,28 @@
+{
+    "star_name": "XSS_J12270-4859",
+    "orbital_period": 0.2878875185,
+    "reference_epoch": 57139.0715595,
+    "working_dir": "working",
+    "run_nicer_l3": false,
+    "ObsID_to_exclude": [],
+    "ObsID_specifically_chosen": [],
+    "number_of_datasets": 10,
+    "lower_energy_limit": 50,
+    "upper_energy_limit": 1000,
+    "bins": 20,
+    "epoch_range": 60,
+    "auto_resolve": true,
+    "reprocess": false,
+    "flare_filtering": true,
+    "run_steps": {     
+        "download": false,
+        "process_l2": true,
+        "barycorr": true,
+        "barycurve": true,
+        "statistics": true,
+        "time_plot": true,
+        "unbinned_plot": true,
+        "binned_plot": true,
+        "stacked_plot": true
+    }
+}
