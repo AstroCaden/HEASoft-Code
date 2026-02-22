@@ -787,8 +787,7 @@ class Pipeline:
                 plt.ylabel("Count rate (/s)")
                 plt.title(f"{self.star_name} {obsid}")
 
-                xmax = min(self.orbital_period, float(np.nanmax(t_rel)))
-                plt.xlim(0, xmax)
+
 
                 output_png = self.images / f"barycentered_{self.star_name}_{obsid}.png"
 
