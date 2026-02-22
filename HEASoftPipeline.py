@@ -312,19 +312,23 @@ class Pipeline:
 
 
 
-
     def _Load_Background_File(self, obsid):
-
         file = self.images / f"netlc_{obsid}.npz"
+        paths = self._ObsID_Paths(obsid)
+
+        
+        if (paths["event_cl"] / "nibackgen3C50.SKIPPED_218").exists() or \
+           (paths["event_cl"] / "nibackgen3C50.SKIPPED_255_GTI").exists():
+            raise RuntimeError(f"{obsid} skipped: no valid background/GTI.")
 
         if not file.exists():
             if self.auto_resolve:
                 self.Background_Subtraction()
-            else:
-                sys.exit(0)
+
+            if not file.exists():
+                raise RuntimeError(f"{obsid}: background-subtracted lightcurve not available.")
 
         d = np.load(file)
-
         return d["t"], d["rate"], d["error"]
 
 
@@ -613,7 +617,7 @@ class Pipeline:
                     else:
                         sys.exit(0)
 
-                subprocess.run(
+                result = subprocess.run(
                     [
                         "nibackgen3C50",
                         f"rootdir={self.star_folder}",
@@ -621,13 +625,43 @@ class Pipeline:
                         f"bkgidxdir={os.environ['CALDB']}/data/nicer/xti/bcf/bkg",
                         f"bkglibdir={os.environ['CALDB']}/data/nicer/xti/bcf/bkg",
                         "gainepoch=2020",
-                        "clobber=YES"
+                        "clobber=YES",
                     ],
                     cwd=paths["event_cl"],
-                    check=True
+                    capture_output=True,
+                    text=True,
+                    check=False,   
                 )
 
-                self.logger.info(f"Background spectrum generated for {obsid}")
+                if result.returncode == 0:
+                    self.logger.info(f"Background spectrum generated for {obsid}")
+                elif result.returncode == 218:
+                    self.logger.warning(f"{obsid}: nibackgen3C50 returned 218 (no good exposure after cuts). Skipping.")
+                    bad_dir = paths["obs_dir"]
+                    new_dir = bad_dir.parent / f"#{obsid}"
+                    try:
+                        bad_dir.rename(new_dir)
+                        self.logger.warning(f"{obsid}: renamed folder to {new_dir.name} so it will be skipped next runs.")
+                    except Exception as e:
+                        self.logger.warning(f"{obsid}: failed to rename folder ({e}); leaving as-is.")
+                    continue
+
+                elif result.returncode == 255 and ("GTI re-definition FAILED" in (result.stdout + result.stderr)):
+                    self.logger.warning(f"{obsid}: nibackgen3C50 GTI re-definition failed (255). Skipping (zero exposure).")
+                    bad_dir = paths["obs_dir"]
+                    new_dir = bad_dir.parent / f"#{obsid}"
+                    try:
+                        bad_dir.rename(new_dir)
+                        self.logger.warning(f"{obsid}: renamed folder to {new_dir.name} so it will be skipped next runs.")
+                    except Exception as e:
+                        self.logger.warning(f"{obsid}: failed to rename folder ({e}); leaving as-is.")
+                    continue
+
+                else:
+                    self.logger.error(f"{obsid}: nibackgen3C50 failed with code {result.returncode}")
+                    self.logger.error(result.stdout)
+                    self.logger.error(result.stderr)
+                    result.check_returncode()  
 
             output_file = self.images / f"netlc_{obsid}.npz"
 
@@ -676,6 +710,7 @@ class Pipeline:
         self._Refresh_ObsID()
         self.images.mkdir(parents=True, exist_ok=True)
 
+        kept_obsids = []
         self.medians_bary = []
         self.errors_bary = []
         self.std_bary = []
@@ -693,14 +728,26 @@ class Pipeline:
                     else:
                         sys.exit(0)
 
+                if not fits_file.exists():
+                    self.logger.warning(f"{obsid}: missing L3 light curve even after auto_resolve; skipping.")
+                    continue
+
                 with fits.open(fits_file) as plot:
                     data = plot[1].data
+                    if len(data) == 0:
+                        self.logger.warning(f"{obsid}: empty light curve; skipping.")
+                        continue
                     rate = np.asarray(data["RATE"], dtype=float)
                     error = np.asarray(data["ERROR"], dtype=float)
 
             else:
-                t, rate, error = self._Load_Background_File(obsid)
+                try:
+                    t, rate, error = self._Load_Background_File(obsid)
+                except RuntimeError as e:
+                    self.logger.warning(f"Skipping {obsid} in Statistics(): {e}")
+                    continue
 
+            kept_obsids.append(obsid)
             self.medians_bary.append(np.median(rate))
             self.errors_bary.append(np.median(error))
             self.std_bary.append(np.std(rate))
@@ -708,9 +755,9 @@ class Pipeline:
         output_txt = self.images / "Light_Curve_Uncertainties.txt"
         np.savetxt(
             output_txt,
-            np.column_stack([self.ObsID_array, self.medians_bary, self.errors_bary, self.std_bary]),
+            np.column_stack([kept_obsids, self.medians_bary, self.errors_bary, self.std_bary]),
             fmt="%s",
-            header="ObsID Median Error Std"
+            header="ObsID Median Error Std",
         )
         
                 
@@ -755,7 +802,11 @@ class Pipeline:
                 three_sigma = 3 * self.std_bary[i]
                 median_val  = self.medians_bary[i]
 
-                t, rate, error = self._Load_Background_File(obsid)
+                try:
+                    t, rate, error = self._Load_Background_File(obsid)
+                except RuntimeError as e:
+                    self.logger.warning(f"Skipping {obsid}: {e}")
+                    continue
 
                 three_sigma = 3 * self.std_bary[i]
                 median_val  = self.medians_bary[i]
