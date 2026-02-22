@@ -312,6 +312,24 @@ class Pipeline:
 
 
 
+
+    def _Load_Background_File(self, obsid):
+
+        file = self.images / f"netlc_{obsid}.npz"
+
+        if not file.exists():
+            if self.auto_resolve:
+                self.Background_Subtraction()
+            else:
+                sys.exit(0)
+
+        d = np.load(file)
+
+        return d["t"], d["rate"], d["error"]
+
+
+
+
     def Dataset_Download(self, ObsID_wanted, ObsID_excluded, ObsID_Chosen):
 
         heasarc = self.heasarc
@@ -414,7 +432,7 @@ class Pipeline:
             self.Dataset_Processing_l3()
     
 
-    def Dataset_Processing_l3(self): #Use L2 for main process but L3 is standard so can compare L2 results to
+    def Dataset_Processing_l3(self): #Use L2 for main process but L3 is standard so can compare with L2
 
         filter_min = self.lower_energy_limit
         filter_max = self.upper_energy_limit
@@ -446,10 +464,7 @@ class Pipeline:
                 self.logger.info(f"{obsid} has been L3 processed")
             else:
                 self.logger.info(f"{obsid} is already L3 processed")
-
-
-
-                
+  
 
                
     def Barycorr(self):
@@ -463,7 +478,7 @@ class Pipeline:
               
                 infile  = paths["event_cl"] / f"ni{obsid}mpu7_sr.lc"
                 outfile = paths["event_cl"] / f"ni{obsid}mpu7_sr_bary.lc"
-                barytime = "yes"
+                barytime = "no"
 
                 if not infile.exists():
                     if self.auto_resolve:
@@ -499,7 +514,7 @@ class Pipeline:
                 f"ra={self.RA}",
                 f"dec={self.Dec}",
                 "refframe=ICRS",
-                "ephem=JPLEPH.430",
+                "ephem=JPLEPH.430", 
                 f"barytime={barytime}",
                 "clobber=yes",
             ]
@@ -559,60 +574,141 @@ class Pipeline:
                            shell=True, executable="/bin/bash", check=True)
 
             self.logger.info(f"{output_curve.name} generated")
-       
-    def Statistics(self): #Statistics is preliminary and not fully complete for proper use
+
+
+
+    def Background_Subtraction(self):
+
+        if self.use_nicerl3:
+            self.logger.info("L3 is active so Background_Subtraction is skipped")
+            return
+
+        self._Refresh_ObsID()
         self.images = self.star_folder / "Outputs"
-       
+        self.images.mkdir(parents=True, exist_ok=True)
+
+        for obsid in self.ObsID_array:
+
+            light_curve_file = self._Light_Curve_File(obsid)
+            paths = self._ObsID_Paths(obsid)
+
+            background_file = paths["event_cl"] / "nibackgen3C50_bkg.pi"
+
+            if not light_curve_file.exists():
+                if self.auto_resolve:
+                    self.Barycorr_Curve(
+                        self.lower_energy_limit,
+                        self.upper_energy_limit
+                    )
+                else:
+                    sys.exit(0)
+
+            if not background_file.exists():
+
+                evt_file = paths["event_cl"] / f"ni{obsid}_0mpu7_cl_bary.evt"
+
+                if not evt_file.exists():
+                    if self.auto_resolve:
+                        self.Barycorr()
+                    else:
+                        sys.exit(0)
+
+                subprocess.run(
+                    [
+                        "nibackgen3C50",
+                        f"rootdir={self.star_folder}",
+                        f"obsid={obsid}",
+                        f"bkgidxdir={os.environ['CALDB']}/data/nicer/xti/bcf/bkg",
+                        f"bkglibdir={os.environ['CALDB']}/data/nicer/xti/bcf/bkg",
+                        "gainepoch=2020",
+                        "clobber=YES"
+                    ],
+                    cwd=paths["event_cl"],
+                    check=True
+                )
+
+                self.logger.info(f"Background spectrum generated for {obsid}")
+
+            output_file = self.images / f"netlc_{obsid}.npz"
+
+            
+            with fits.open(light_curve_file) as hdul:
+
+                sdat = hdul[1].data
+
+                time_col = "BARYTIME" if "BARYTIME" in sdat.columns.names else "TIME"
+
+                st = np.asarray(sdat[time_col], dtype=float)
+                sr = np.asarray(sdat["RATE"], dtype=float)
+                se = np.asarray(sdat["ERROR"], dtype=float)
+
+      
+            with fits.open(background_file) as hdul:
+
+                bdat = hdul[1].data
+
+                if "RATE" in bdat.columns.names:
+                    bkg = np.asarray(bdat["RATE"], dtype=float)
+                else:
+                    bkg = np.asarray(bdat["COUNTS"], dtype=float)
+
+                mean_bkg_rate = np.mean(bkg)
+
+                br_i = np.full_like(st, mean_bkg_rate)
+                be_i = np.sqrt(br_i)
+
+            net_r = sr - br_i
+            net_e = np.sqrt(se**2 + be_i**2)
+
+            np.savez(
+                output_file,
+                t=st,
+                rate=net_r,
+                error=net_e
+            )
+
+
+
+            
+           
+    def Statistics(self):
+        self.images = self.star_folder / "Outputs"
         self._Refresh_ObsID()
         self.images.mkdir(parents=True, exist_ok=True)
+
         self.medians_bary = []
         self.errors_bary = []
         self.std_bary = []
 
         for obsid in self.ObsID_array:
 
-            paths = self._ObsID_Paths(obsid)
-            fits_file = self._Light_Curve_File(obsid)
-            
-            if not fits_file.exists():
-                if self.auto_resolve:
-                    if self.use_nicerl3:
-                        self.logger.info(f"{fits_file} not found, running Dataset_Processing_l3 + Barycorr")
+            if self.use_nicerl3:
+                fits_file = self._Light_Curve_File(obsid)
+
+                if not fits_file.exists():
+                    if self.auto_resolve:
                         self.Dataset_Processing_l3()
                         self.Barycorr()
+                        fits_file = self._Light_Curve_File(obsid)
                     else:
-                        self.logger.info(f"{fits_file} not found, running Barycorr_Curve")
-                        self.Barycorr_Curve(self.lower_energy_limit, self.upper_energy_limit)
-                    fits_file = self._Light_Curve_File(obsid) 
-                else:
-                    self.logger.info(f"{fits_file} not found, terminating")
-                    sys.exit(0)
+                        sys.exit(0)
 
-            with fits.open(fits_file) as plot:
-                data = plot[1].data
+                with fits.open(fits_file) as plot:
+                    data = plot[1].data
+                    rate = np.asarray(data["RATE"], dtype=float)
+                    error = np.asarray(data["ERROR"], dtype=float)
 
-                temp_median = np.median(data["RATE"])
-                temp_error  = np.median(data["ERROR"])
-                std_temp    = np.std(data["RATE"])
+            else:
+                t, rate, error = self._Load_Background_File(obsid)
 
-            self.medians_bary.append(temp_median)
-            self.errors_bary.append(temp_error)
-            self.std_bary.append(std_temp)
-
-        self.logger.info(f"Medians: {self.medians_bary}")
-        self.logger.info(f"Errors: {self.errors_bary}")
-        self.logger.info(f"Standard Deviation: {self.std_bary}")
+            self.medians_bary.append(np.median(rate))
+            self.errors_bary.append(np.median(error))
+            self.std_bary.append(np.std(rate))
 
         output_txt = self.images / "Light_Curve_Uncertainties.txt"
-
         np.savetxt(
             output_txt,
-            np.column_stack([
-                self.ObsID_array,
-                self.medians_bary,
-                self.errors_bary,
-                self.std_bary
-            ]),
+            np.column_stack([self.ObsID_array, self.medians_bary, self.errors_bary, self.std_bary]),
             fmt="%s",
             header="ObsID Median Error Std"
         )
@@ -659,25 +755,27 @@ class Pipeline:
                 three_sigma = 3 * self.std_bary[i]
                 median_val  = self.medians_bary[i]
 
-                flares_filter  = (data["RATE"] - median_val) > three_sigma
-                below_threshold = (median_val - data["RATE"]) > three_sigma
-                normal = ~(flares_filter | below_threshold)
+                t, rate, error = self._Load_Background_File(obsid)
 
-                
-                time_col = "BARYTIME" if "BARYTIME" in data.columns.names else "TIME"
-                t = np.asarray(data[time_col], dtype=float)
+                three_sigma = 3 * self.std_bary[i]
+                median_val  = self.medians_bary[i]
+
+                flares_filter  = (rate - median_val) > three_sigma
+                below_threshold = (median_val - rate) > three_sigma
+                normal = ~(flares_filter | below_threshold)
 
                 t0 = header.get("TSTART", float(t[0]))
                 t_rel = t - t0
 
-                plt.scatter(t_rel[flares_filter],   data["RATE"][flares_filter],   color="red")
-                plt.scatter(t_rel[below_threshold], data["RATE"][below_threshold], color="gray")
-                plt.scatter(t_rel[normal],          data["RATE"][normal],          color="blue")
+
+                plt.scatter(t_rel[flares_filter],   rate[flares_filter],   color="red")
+                plt.scatter(t_rel[below_threshold], rate[below_threshold], color="gray")
+                plt.scatter(t_rel[normal],          rate[normal],          color="blue")
 
                 plt.errorbar(
                     t_rel,
-                    data["RATE"],
-                    yerr=data["ERROR"],
+                    rate,
+                    yerr=error,
                     fmt=".",
                     color="gray",
                     capsize=3,
@@ -687,7 +785,7 @@ class Pipeline:
 
                 plt.xlabel("Time since start (s)")
                 plt.ylabel("Count rate (/s)")
-                plt.title(f"{self.star_name} {obsid} ({time_col})")
+                plt.title(f"{self.star_name} {obsid}")
 
                 xmax = min(self.orbital_period, float(np.nanmax(t_rel)))
                 plt.xlim(0, xmax)
@@ -738,24 +836,25 @@ class Pipeline:
                     self.logger.info(f"{obsid} is empty, skipping")
                     continue
 
+                time_array, rate, error = self._Load_Background_File(obsid)
+
                 three_sigma = 3 * self.std_bary[i]
                 median_val  = self.medians_bary[i]
 
-                flares_filter  = (data["RATE"] - median_val) > three_sigma
-                below_threshold = (median_val - data["RATE"]) > three_sigma
+                flares_filter  = (rate - median_val) > three_sigma
+                below_threshold = (median_val - rate) > three_sigma
                 normal = ~(flares_filter | below_threshold)
 
                 header = plot[1].header
                 mjdref = header["MJDREFI"] + header["MJDREFF"]
 
-                time_col = "BARYTIME" if "BARYTIME" in data.columns.names else "TIME"
-                time_array = data[time_col]
+        
 
                 phase = self._Phase_Calculator(time_array, mjdref)
 
                 phase_plot = np.concatenate([phase, phase + 1.0])
-                rate_plot  = np.concatenate([data["RATE"], data["RATE"]])
-                error_plot = np.concatenate([data["ERROR"], data["ERROR"]])
+                rate_plot  = np.concatenate([rate, rate])
+                error_plot = np.concatenate([error, error])
 
                 flares_plot = np.concatenate([flares_filter, flares_filter])
                 below_plot  = np.concatenate([below_threshold, below_threshold])
@@ -809,16 +908,9 @@ class Pipeline:
                 header = plot[1].header
                 mjdref = header["MJDREFI"] + header["MJDREFF"]
 
-                time_col = "BARYTIME" if "BARYTIME" in data.columns.names else "TIME"
-                time_array = data[time_col]
+                time_array, rate, error = self._Load_Background_File(obsid)
 
                 phase = self._Phase_Calculator(time_array, mjdref)
-
-
-
-                
-                rate = data["RATE"]
-                error = data["ERROR"]
 
                 if self.flare_filter:
                     median = np.median(rate)
@@ -887,15 +979,11 @@ class Pipeline:
                     header = plot[1].header
                     mjdref = header["MJDREFI"] + header["MJDREFF"]
 
-                    time_col = "BARYTIME" if "BARYTIME" in data.columns.names else "TIME"
-                    time_array = data[time_col]
+            
+                    
+                    time_array, rates, errors = self._Load_Background_File(obsid)
 
                     phases = self._Phase_Calculator(time_array, mjdref)
-
-
-                    
-                    rates = data["RATE"]
-                    errors = data["ERROR"]
 
                     if self.flare_filter:
                         median = np.median(rates)
@@ -1011,7 +1099,11 @@ if __name__ == "__main__":
         pipeline.Barycorr_Curve(
         filter_min=config["lower_energy_limit"],
         filter_max=config["upper_energy_limit"]
-)
+        )
+
+    if steps.get("remove_background", False):
+        pipeline.Background_Subtraction()
+
 
     if steps.get("statistics", False):
         pipeline.Statistics()
