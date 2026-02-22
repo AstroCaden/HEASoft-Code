@@ -16,6 +16,7 @@ from pathlib import Path
 import json
 import sys
 import gzip, shutil
+import re
 
 class Pipeline:
 
@@ -75,8 +76,8 @@ class Pipeline:
         
 
         self.obsid_epoch = {}
-            
-        self.star_folder = self.base_dir / self.star_name
+        safe_folder = re.sub(r"[^A-Za-z0-9_.-]+", "_", self.star_name).strip("_")
+        self.star_folder = self.base_dir / safe_folder
         self.star_folder.mkdir(exist_ok=True)
         print(f"Inside {self.star_folder}")
 
@@ -311,86 +312,65 @@ class Pipeline:
 
 
 
-    
     def Dataset_Download(self, ObsID_wanted, ObsID_excluded, ObsID_Chosen):
-
 
         heasarc = self.heasarc
         table = heasarc.query_region(self.pos, catalog="nicermastr", radius="3 arcmin")
 
-
-
-
         target = self.star_name.lower().replace(" ", "").replace("_", "")
         namecol = np.array(table["name"]).astype(str)
-
-        mask = np.array([
-            target in n.lower().replace(" ", "").replace("_", "")
-            for n in namecol
-        ])
+        mask = np.array([target in n.lower().replace(" ", "").replace("_", "") for n in namecol])
         table = table[mask]
 
-
-
-
-
-       
         today_mjd = Time.now().mjd
         table = table[(table["time"] > 0) & (table["public_date"] <= today_mjd)]
-
         table.sort("time")
 
-                
-
-        ObsID_array = np.array(table["obsid"])
-
-        ObsID_date = []
-        for mjd in table["public_date"]:
-            t = Time(mjd, format="mjd")
-            ObsID_date.append(f"{t.datetime.year}_{t.datetime.month:02d}")
-        ObsID_date = np.array(ObsID_date)
-
-        Observation_date = []
-        for mjd in table["processing_date"]:
-            t = Time(mjd, format="mjd")
-            Observation_date.append(f"{t.datetime.year}_{t.datetime.month:02d}")
-        Observation_array = np.array(Observation_date)
-
-        
-        Epoch_array = np.array([self.obsid_epoch[str(o)] for o in self.ObsID_current])
-
-
-
-        ObsID_run = min(ObsID_wanted, len(table))
-        
-
-        unique_obsids = np.unique(table["obsid"])
+        obsids_time = np.array(table["obsid"]).astype(str)
+        _, first_idx = np.unique(obsids_time, return_index=True)
+        unique_obsids = obsids_time[np.sort(first_idx)]
 
         if ObsID_excluded is not None and len(ObsID_excluded) > 0:
-            unique_obsids = [obs for obs in unique_obsids if obs not in ObsID_excluded]
+            if ObsID_excluded == "current":
+                ObsID_excluded = self.ObsID_current
+            ObsID_excluded = set(map(str, ObsID_excluded))
+
+            before = list(unique_obsids)
+            unique_obsids = np.array([o for o in unique_obsids if o not in ObsID_excluded], dtype=str)
+            removed = sorted(set(before) - set(unique_obsids))
+
+            self.logger.info(f"Excluded {len(removed)} ObsIDs by request.")
 
         if ObsID_Chosen is not None and len(ObsID_Chosen) > 0:
-            unique_obsids = [obs for obs in unique_obsids if obs in ObsID_Chosen]
-            
-        
-        selected_obsids = unique_obsids[:ObsID_wanted]
+            ObsID_Chosen = set(map(str, ObsID_Chosen))
 
-   
-        subset_table = table[np.isin(table["obsid"], selected_obsids)]
+            before = list(unique_obsids)
+            unique_obsids = np.array([o for o in unique_obsids if o in ObsID_Chosen], dtype=str)
+            kept = sorted(set(unique_obsids))
+
+            self.logger.info(f"Whitelisted {len(kept)} ObsIDs by request.")
+
+        if len(unique_obsids) == 0:
+            self.logger.info("No ObsIDs left after filtering; nothing to download.")
+            return
+
+        n = min(int(ObsID_wanted), len(unique_obsids))
+        idx = np.linspace(0, len(unique_obsids) - 1, n, dtype=int)
+        selected_obsids = unique_obsids[idx]
+        ObsID_run = len(selected_obsids)
+        self.logger.info(f"Will download {len(selected_obsids)} ObsIDs: {selected_obsids}")
+
+        subset_table = table[np.isin(np.array(table["obsid"]).astype(str), selected_obsids)]
         links = heasarc.locate_data(subset_table)
-
 
         downloaded = 0
         seen = set()
 
-
         for row in links:
-
             if downloaded >= ObsID_run:
                 break
 
             url = row["access_url"]
-
             if url in seen:
                 continue
             seen.add(url)
@@ -399,9 +379,7 @@ class Pipeline:
             subprocess.run([os.path.expanduser("~/download_wget.pl"), url], check=True, cwd=self.star_folder)
             downloaded += 1
 
-
         self._Refresh_ObsID()
-
 
 
 
@@ -966,7 +944,8 @@ class Pipeline:
 
             
 
-            plt.errorbar(centers, binned_rate, yerr=binned_err, fmt='o', capsize=3)
+            m = np.isfinite(binned_rate) & np.isfinite(binned_err)
+            plt.errorbar(centers[m], binned_rate[m], yerr=binned_err[m], fmt="o", capsize=3)
             plt.xlabel("Orbital phase")
             plt.ylabel("Mean count rate (/s)")
             plt.title(f"{self.star_name} stacked phase-folded light curve (Epoch start MJD {epoch_start:.2f})")
