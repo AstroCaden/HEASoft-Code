@@ -10,7 +10,7 @@ HEASoft + NICER tools must be installed and on your PATH for the program to run.
 - **reference_epoch**: Phase-zero epoch (**T0**) in MJD (e.g. Tasc / inferior conjunction from literature).
 - **working_dir**: Directory for the program to operate in. Use `"working"` for the directory containing the `.py` file, or provide an absolute path.
 - **run_nicer_l3**: `true` to run `nicerl3` instead of `nicerl2 + XSELECT`.
-- **ObsID_to_exclude**: ObsIDs to skip. Example: `["0060010101", "0060010102"]`. Use "current" to exclude ObsID already downloaded.
+- **ObsID_to_exclude**: ObsIDs to skip. Example: `["0060010101", "0060010102"]`. Use `"current"` to exclude ObsID already downloaded.
 - **ObsID_specifically_chosen**: ObsIDs to use (downloads only these). Example: `["0060010101", "0060010102"]`.
 - **number_of_datasets**: How many datasets to download. If fewer exist, the program uses what’s available.
 - **lower_energy_limit**: Lower energy cut in PI (1 PI = 0.01 keV).
