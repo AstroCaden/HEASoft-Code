@@ -27,6 +27,7 @@ HEASoft + NICER tools must be installed and on your PATH for the program to run.
 - **process_l2**: Runs `nicerl2` processing.
 - **barycorr**: Runs barycentric correction on L2 products.
 - **barycurve**: Extracts light curve from barycentered event file.
+- **remove_background**: Estimates and subtracts NICER background using `nibackgen3C50`.
 - **statistics**: Computes basic statistics used for uncertainties in plots.
 - **time_plot**: Time-domain plot for each ObsID.
 - **unbinned_plot**: Phase-folded (unbinned) plot for each ObsID.
