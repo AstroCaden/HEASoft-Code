@@ -4,8 +4,8 @@ Modular Pipeline created to run NICER data through HEASoft.
 HEASoft + NICER tools must be installed and on PATH for program to run.
 
 # Config Parameters
-star_name: Name of the target you wish to analyse.
-orbital_period: Orbital Period of object (in days).
+star_name: Name of the target you wish to analyse./
+orbital_period: Orbital Period of object (in days)./
 reference_epoch: Phase-zero epoch (T0) in MJD (e.g. Tasc or inferior conjunction from literature)
 working_dir: Directory for program to operate in. Use "working" for directory at which the .py file is located, or paste the directory path.
 run_nicer_l3: "true" if you wish to run nicerl3 rather than nicerl2 + XSELECT
