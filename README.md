@@ -1,7 +1,7 @@
 # HEASoft-Code
 Modular pipeline created to run NICER data through HEASoft.
 
-HEASoft + NICER tools must be installed and on your PATH for the program to run.
+HEASoft + NICER tools + nibackgen3C50 must be installed and on your PATH for the program to run.
 
 ## Config parameters
 
