@@ -19,6 +19,7 @@
         "process_l2": true,
         "barycorr": true,
         "barycurve": true,
+        "remove_background": true,
         "statistics": true,
         "time_plot": true,
         "unbinned_plot": true,
