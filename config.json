@@ -1,6 +1,7 @@
 {
     "star_name": "XSS_J12270-4859",
     "orbital_period": 0.2878875185,
+    "orbital_pdot": 0.0,
     "reference_epoch": 57139.0715595,
     "working_dir": "working",
     "run_nicer_l3": false,
