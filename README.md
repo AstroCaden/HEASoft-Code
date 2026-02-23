@@ -7,6 +7,7 @@ HEASoft + NICER tools + nibackgen3C50 must be installed and on your PATH for the
 
 - **star_name**: Name of the target you wish to analyse.
 - **orbital_period**: Orbital period of object (in days).
+- **orbital_pdot**: First time derivative of orbital period. Use `0.0` if not wanted.
 - **reference_epoch**: Phase-zero epoch (**T0**) in MJD (e.g. Tasc / inferior conjunction from literature).
 - **working_dir**: Directory for the program to operate in. Use `"working"` for the directory containing the `.py` file, or provide an absolute path.
 - **run_nicer_l3**: `true` to run `nicerl3` instead of `nicerl2 + XSELECT`.
