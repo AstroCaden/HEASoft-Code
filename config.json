@@ -7,6 +7,7 @@
     "ObsID_to_exclude": [],
     "ObsID_specifically_chosen": [],
     "number_of_datasets": 10,
+    "concurrent_downloads": 5,
     "lower_energy_limit": 50,
     "upper_energy_limit": 1000,
     "bins": 20,
