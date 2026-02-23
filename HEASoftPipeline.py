@@ -17,6 +17,7 @@ import json
 import sys
 import gzip, shutil
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 class Pipeline:
 
@@ -37,6 +38,7 @@ class Pipeline:
         flare_filter,
         T0,
         use_nicerl3,
+        concurrent_downloads,
     ):
 
 
@@ -59,6 +61,7 @@ class Pipeline:
         self.flare_filter = flare_filter
         self.T0 = T0
         self.use_nicerl3 = use_nicerl3
+        self.concurrent_downloads = concurrent_downloads
         
         
         if working_dir == "working":
@@ -332,6 +335,13 @@ class Pipeline:
         return d["t"], d["rate"], d["error"]
 
 
+    def _Single_Downloader(self, url: str):
+        self.logger.info(f"Downloading {url}")
+        subprocess.run(
+            [os.path.expanduser("~/download_wget.pl"), url],
+            cwd=self.star_folder
+        )
+
 
 
     def Dataset_Download(self, ObsID_wanted, ObsID_excluded, ObsID_Chosen):
@@ -366,11 +376,8 @@ class Pipeline:
         if ObsID_Chosen is not None and len(ObsID_Chosen) > 0:
             ObsID_Chosen = set(map(str, ObsID_Chosen))
 
-            before = list(unique_obsids)
             unique_obsids = np.array([o for o in unique_obsids if o in ObsID_Chosen], dtype=str)
-            kept = sorted(set(unique_obsids))
-
-            self.logger.info(f"Whitelisted {len(kept)} ObsIDs by request.")
+            self.logger.info(f"Whitelisted {len(unique_obsids)} ObsIDs by request.")
 
         if len(unique_obsids) == 0:
             self.logger.info("No ObsIDs left after filtering; nothing to download.")
@@ -385,21 +392,26 @@ class Pipeline:
         subset_table = table[np.isin(np.array(table["obsid"]).astype(str), selected_obsids)]
         links = heasarc.locate_data(subset_table)
 
-        downloaded = 0
+        urls = []
         seen = set()
-
         for row in links:
-            if downloaded >= ObsID_run:
-                break
-
             url = row["access_url"]
             if url in seen:
                 continue
             seen.add(url)
+            urls.append(url)
+            if len(urls) >= ObsID_run:
+                break
 
-            self.logger.info(f"Downloading {url}")
-            subprocess.run([os.path.expanduser("~/download_wget.pl"), url], check=True, cwd=self.star_folder)
-            downloaded += 1
+        if not urls:
+            self.logger.info("No download URLs found; nothing to download.")
+            return
+
+        max_workers = self.concurrent_downloads
+        self.logger.info(f"Downloading {len(urls)} ObsIDs with {max_workers} workers")
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            pool.map(self._Single_Downloader, urls)
 
         self._Refresh_ObsID()
 
@@ -1122,7 +1134,8 @@ if __name__ == "__main__":
         epoch_width=config["epoch_range"],
         flare_filter=config["flare_filtering"],
         T0=config["reference_epoch"],
-        use_nicerl3=config["run_nicer_l3"]
+        use_nicerl3=config["run_nicer_l3"],
+        concurrent_downloads=config["concurrent_downloads"],
         
         
     )
