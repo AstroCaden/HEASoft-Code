@@ -4,12 +4,10 @@ from astropy.io import fits
 import os
 from datetime import datetime
 from datetime import timedelta
-import glob
 from astroquery.heasarc import Heasarc
 from astropy.time import Time
 from astropy.table import Table
 import subprocess
-from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from astropy.coordinates import SkyCoord
 import logging
 from pathlib import Path
@@ -72,8 +70,7 @@ class Pipeline:
                 
                 self.base_dir = Path(working_dir).resolve()
             else:
-                print("The directory you entered doesn't exist")
-                return
+                raise RuntimeError("Working directory does not exist")
                 
         
         
@@ -95,7 +92,7 @@ class Pipeline:
         self.ObsID_current = [e.name for e in self.star_folder.iterdir() if e.is_dir() and e.name.isdigit()]
         self.orbital_period = orbital_period * 86400
  
-        self._Refresh_ObsID()
+        
 
         self.images = self.star_folder / "Outputs"
         if self.images.exists():
@@ -126,7 +123,17 @@ class Pipeline:
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
         self.logger.info(f"Pipeline initialised for {self.star_name} at {self.star_folder}")
-        
+        self.failed = {}
+
+        f = self.star_folder / "failed_obsids.json"
+        if f.exists():
+            try:
+                self.failed = json.loads(f.read_text())
+            except Exception:
+                self.failed = {}
+
+
+        self._Refresh_ObsID()
         self._Reprocessing()
 
 
@@ -153,10 +160,14 @@ class Pipeline:
             self.ObsID_current = []
             return
 
+        failed = set(getattr(self, "failed", {}).keys())
+
         self.ObsID_array = sorted([
             d.name
             for d in self.star_folder.iterdir()
-            if d.is_dir() and d.name[:9].isdigit()  
+            if d.is_dir()
+            and d.name[:9].isdigit()
+            and d.name not in failed
         ])
         self.ObsID_current = self.ObsID_array.copy()
 
@@ -341,6 +352,25 @@ class Pipeline:
             [os.path.expanduser("~/download_wget.pl"), url],
             cwd=self.star_folder
         )
+
+
+    def _Failed_ObsID(self, obsid: str, reason: str, where: str = ""):
+
+        msg = f"{obsid} FAILED"
+        if where:
+            msg += f" in {where}"
+        msg += f": {reason}"
+
+        self.logger.warning(msg)
+
+        self.failed[str(obsid)] = msg
+
+     
+        f = self.star_folder / "failed_obsids.json"
+        try:
+            f.write_text(json.dumps(self.failed, indent=2))
+        except Exception as e:
+            self.logger.warning(f"Could not save failed_obsids.json: {e}")
 
 
 
@@ -539,7 +569,13 @@ class Pipeline:
             env["HEADASNOQUERY"] = "1"
             env["HEADASYES"] = "1"
 
-            subprocess.run(cmd, env=env, check=True)
+            p = subprocess.run(cmd, env=env, capture_output=True, text=True)
+
+            if p.returncode != 0:
+                reason = (p.stderr or p.stdout or "unknown error").strip()
+                self._Failed_ObsID(obsid, reason, where="barycorr")
+                continue
+
             self.logger.info(f"{outfile.name} generated")
 
 
@@ -592,7 +628,6 @@ class Pipeline:
             self.logger.info(f"{output_curve.name} generated")
 
 
-
     def Background_Subtraction(self):
 
         if self.use_nicerl3:
@@ -612,10 +647,7 @@ class Pipeline:
 
             if not light_curve_file.exists():
                 if self.auto_resolve:
-                    self.Barycorr_Curve(
-                        self.lower_energy_limit,
-                        self.upper_energy_limit
-                    )
+                    self.Barycorr_Curve(self.lower_energy_limit, self.upper_energy_limit)
                 else:
                     sys.exit(0)
 
@@ -642,55 +674,36 @@ class Pipeline:
                     cwd=paths["event_cl"],
                     capture_output=True,
                     text=True,
-                    check=False,   
+                    check=False,
                 )
 
                 if result.returncode == 0:
                     self.logger.info(f"Background spectrum generated for {obsid}")
+
                 elif result.returncode == 218:
-                    self.logger.warning(f"{obsid}: nibackgen3C50 returned 218 (no good exposure after cuts). Skipping.")
-                    bad_dir = paths["obs_dir"]
-                    new_dir = bad_dir.parent / f"#{obsid}"
-                    try:
-                        bad_dir.rename(new_dir)
-                        self.logger.warning(f"{obsid}: renamed folder to {new_dir.name} so it will be skipped next runs.")
-                    except Exception as e:
-                        self.logger.warning(f"{obsid}: failed to rename folder ({e}); leaving as-is.")
+                    self._Failed_ObsID(obsid, "nibackgen3C50: no good exposure after cuts (218)", where="background")
                     continue
 
                 elif result.returncode == 255 and ("GTI re-definition FAILED" in (result.stdout + result.stderr)):
-                    self.logger.warning(f"{obsid}: nibackgen3C50 GTI re-definition failed (255). Skipping (zero exposure).")
-                    bad_dir = paths["obs_dir"]
-                    new_dir = bad_dir.parent / f"#{obsid}"
-                    try:
-                        bad_dir.rename(new_dir)
-                        self.logger.warning(f"{obsid}: renamed folder to {new_dir.name} so it will be skipped next runs.")
-                    except Exception as e:
-                        self.logger.warning(f"{obsid}: failed to rename folder ({e}); leaving as-is.")
+                    self._Failed_ObsID(obsid, "nibackgen3C50: GTI re-definition failed / zero exposure (255)", where="background")
                     continue
 
-                else:
-                    self.logger.error(f"{obsid}: nibackgen3C50 failed with code {result.returncode}")
-                    self.logger.error(result.stdout)
-                    self.logger.error(result.stderr)
-                    result.check_returncode()  
+                elif result.returncode != 0:
+                    reason = (result.stderr or result.stdout or "").strip()
+                    self._Failed_ObsID(obsid, f"nibackgen3C50 failed ({result.returncode})\n{reason}", where="background")
+                    continue
 
             output_file = self.images / f"netlc_{obsid}.npz"
 
-            
             with fits.open(light_curve_file) as hdul:
-
                 sdat = hdul[1].data
-
                 time_col = "BARYTIME" if "BARYTIME" in sdat.columns.names else "TIME"
 
                 st = np.asarray(sdat[time_col], dtype=float)
                 sr = np.asarray(sdat["RATE"], dtype=float)
                 se = np.asarray(sdat["ERROR"], dtype=float)
 
-      
             with fits.open(background_file) as hdul:
-
                 bdat = hdul[1].data
 
                 if "RATE" in bdat.columns.names:
@@ -699,21 +712,13 @@ class Pipeline:
                     bkg = np.asarray(bdat["COUNTS"], dtype=float)
 
                 mean_bkg_rate = np.mean(bkg)
-
                 br_i = np.full_like(st, mean_bkg_rate)
                 be_i = np.sqrt(br_i)
 
             net_r = sr - br_i
             net_e = np.sqrt(se**2 + be_i**2)
 
-            np.savez(
-                output_file,
-                t=st,
-                rate=net_r,
-                error=net_e
-            )
-
-
+            np.savez(output_file, t=st, rate=net_r, error=net_e)
 
             
            
@@ -1013,7 +1018,6 @@ class Pipeline:
     def Stacked_Plot(self):
         self._Refresh_ObsID()
         self.images = self.star_folder / "Outputs"
-        
 
         self._Epoch_Binning()
         epoch_groups = {}
@@ -1021,11 +1025,12 @@ class Pipeline:
             mjd = self.obsid_epoch.get(obsid)
             if mjd is None:
                 continue
-            epoch_start = mjd - (mjd % self.epoch_width)
-            epoch_groups.setdefault(epoch_start, []).append(obsid)
+            epoch_id = int(mjd // self.epoch_width)
+            epoch_groups.setdefault(epoch_id, []).append(obsid)
 
-        for epoch_start in sorted(epoch_groups.keys()):
-            obsids = epoch_groups[epoch_start]
+        for epoch_id in sorted(epoch_groups.keys()):
+            obsids = epoch_groups[epoch_id]
+            epoch_start = epoch_id * self.epoch_width
             all_phases, all_rates, all_errors, all_obsids = [], [], [], []
 
             for obsid in obsids:
@@ -1041,10 +1046,7 @@ class Pipeline:
                     header = plot[1].header
                     mjdref = header["MJDREFI"] + header["MJDREFF"]
 
-            
-                    
                     time_array, rates, errors = self._Load_Background_File(obsid)
-
                     phases = self._Phase_Calculator(time_array, mjdref)
 
                     if self.flare_filter:
@@ -1077,7 +1079,7 @@ class Pipeline:
             all_errors = np.concatenate(all_errors)
             all_obsids = np.concatenate(all_obsids)
 
-            output_txt = self.images / f"stacked_epoch_{self.star_name}_{int(epoch_start)}.txt"
+            output_txt = self.images / f"stacked_epoch_{self.star_name}_{epoch_id}.txt"
             np.savetxt(
                 output_txt,
                 np.column_stack([all_obsids, all_phases, all_rates, all_errors]),
@@ -1090,9 +1092,7 @@ class Pipeline:
             fit = self._Comparison_Model(centers, binned_rate, binned_err)
             if fit is not None:
                 C, A, phi0, chi2, dof = fit
-                self.logger.info(f"Epoch {int(epoch_start)} chi2/dof = {chi2/dof:.3f} (dof={dof})")
-
-            
+                self.logger.info(f"Epoch {epoch_id} chi2/dof = {chi2/dof:.3f} (dof={dof})")
 
             m = np.isfinite(binned_rate) & np.isfinite(binned_err)
             plt.errorbar(centers[m], binned_rate[m], yerr=binned_err[m], fmt="o", capsize=3)
@@ -1101,7 +1101,7 @@ class Pipeline:
             plt.title(f"{self.star_name} stacked phase-folded light curve (Epoch start MJD {epoch_start:.2f})")
             plt.xlim(0, 1)
 
-            output_png = self.images / f"stacked_epoch_{self.star_name}_{int(epoch_start)}.png"
+            output_png = self.images / f"stacked_epoch_{self.star_name}_{epoch_id}.png"
             plt.savefig(output_png)
             plt.clf()
             plt.close()
