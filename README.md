@@ -13,6 +13,7 @@ HEASoft + NICER tools + nibackgen3C50 must be installed and on your PATH for the
 - **ObsID_to_exclude**: ObsIDs to skip. Example: `["0060010101", "0060010102"]`. Use `"current"` to exclude ObsID already downloaded.
 - **ObsID_specifically_chosen**: ObsIDs to use (downloads only these). Example: `["0060010101", "0060010102"]`.
 - **number_of_datasets**: How many datasets to download. If fewer exist, the program uses what’s available.
+- **concurrent_downloads**: Number of dataset to download concurrently. Recommended 5-10.
 - **lower_energy_limit**: Lower energy cut in PI (1 PI = 0.01 keV).
 - **upper_energy_limit**: Upper energy cut in PI (1 PI = 0.01 keV).
 - **bins**: Number of bins used for binned plots.
