@@ -908,16 +908,26 @@ class Pipeline:
                 three_sigma = 3 * self.std_bary[i]
                 median_val  = self.medians_bary[i]
 
+        
+
+                header = plot[1].header
+                mjdref = header["MJDREFI"] + header["MJDREFF"]
+                phase = self._Phase_Calculator(time_array, mjdref)
+
+
+
+                t = time_array
+                if np.nanmin(t) < 1e6:
+                    t = t + header["TSTART"]
+
+                phase = self._Phase_Calculator(t, mjdref)
+
+                
                 flares_filter  = (rate - median_val) > three_sigma
                 below_threshold = (median_val - rate) > three_sigma
                 normal = ~(flares_filter | below_threshold)
 
-                header = plot[1].header
-                mjdref = header["MJDREFI"] + header["MJDREFF"]
-
-        
-
-                phase = self._Phase_Calculator(time_array, mjdref)
+                
 
                 phase_plot = np.concatenate([phase, phase + 1.0])
                 rate_plot  = np.concatenate([rate, rate])
@@ -977,7 +987,11 @@ class Pipeline:
 
                 time_array, rate, error = self._Load_Background_File(obsid)
 
-                phase = self._Phase_Calculator(time_array, mjdref)
+                t = time_array
+                if np.nanmin(t) < 1e6:
+                    t = t + header["TSTART"]
+
+                phase = self._Phase_Calculator(t, mjdref)
 
                 if self.flare_filter:
                     median = np.median(rate)
@@ -1047,7 +1061,12 @@ class Pipeline:
                     mjdref = header["MJDREFI"] + header["MJDREFF"]
 
                     time_array, rates, errors = self._Load_Background_File(obsid)
-                    phases = self._Phase_Calculator(time_array, mjdref)
+
+                    t = time_array
+                    if np.nanmin(t) < 1e6:
+                        t = t + header["TSTART"]
+
+                    phases = self._Phase_Calculator(t, mjdref)
 
                     if self.flare_filter:
                         median = np.median(rates)
