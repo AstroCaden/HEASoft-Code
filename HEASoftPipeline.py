@@ -37,6 +37,7 @@ class Pipeline:
         T0,
         use_nicerl3,
         concurrent_downloads,
+        orbital_pdot,
     ):
 
 
@@ -60,6 +61,7 @@ class Pipeline:
         self.T0 = T0
         self.use_nicerl3 = use_nicerl3
         self.concurrent_downloads = concurrent_downloads
+        self.orbital_pdot = orbital_pdot
         
         
         if working_dir == "working":
@@ -203,12 +205,21 @@ class Pipeline:
 
 
     def _Phase_Calculator(self, time_array, MJD_ref):
-
+      
         MJD_times = MJD_ref + (time_array / 86400.0)
-        P_orb_days = self.orbital_period / 86400.0
-        phase = ((MJD_times - self.T0) / P_orb_days) % 1.0
 
-        return phase
+        
+        dt_sec = (MJD_times - self.T0) * 86400.0
+
+        P0_sec = self.orbital_period      
+        Pdot   = self.orbital_pdot        
+
+        if Pdot == 0.0:
+            return (dt_sec / P0_sec) % 1.0
+
+      
+        cycles = (dt_sec / P0_sec) - 0.5 * (Pdot / (P0_sec * P0_sec)) * (dt_sec * dt_sec)
+        return cycles % 1.0
 
 
 
@@ -447,32 +458,36 @@ class Pipeline:
 
 
 
-      
-
+          
     def Dataset_Processing_l2(self):
-
-        
         self._Refresh_ObsID()
         if len(self.ObsID_current) == 0:
             self.logger.info("No datasets found")
             sys.exit(0)
-        
+
         for obsid in self.ObsID_current:
             paths = self._ObsID_Paths(obsid)
-            event_dir = paths["event_cl"]
 
-            confirmation_file = event_dir / f"ni{obsid}_0mpu7_cl.evt"
+            hk_dir = paths["xti_dir"] / "hk"
+            hk_files = list(hk_dir.glob(f"ni{obsid}_?mpu*.hk")) + list(hk_dir.glob(f"ni{obsid}_?mpu*.hk.gz"))
+            if len(hk_files) == 0:
+                self._Failed_ObsID(obsid, f"missing hk files in {hk_dir}", where="nicerl2")
+                continue
 
+            confirmation_file = paths["event_cl"] / f"ni{obsid}_0mpu7_cl.evt"
+            if confirmation_file.exists() and confirmation_file.stat().st_size > 0:
+                self.logger.info(f"{obsid} is already L2 processed")
+                continue
 
-            if not confirmation_file.exists() or confirmation_file.stat().st_size == 0:
+            try:
                 subprocess.run(
                     ["nicerl2", f"indir={paths['obs_dir']}", "clobber=yes"],
                     check=True
                 )
                 self.logger.info(f"{obsid} has been L2 processed")
-            else:
-                self.logger.info(f"{obsid} is already L2 processed")
-
+            except subprocess.CalledProcessError as e:
+                self._Failed_ObsID(obsid, f"nicerl2 failed (code {e.returncode})", where="nicerl2")
+                continue
 
         if self.use_nicerl3 == True:
             self.Dataset_Processing_l3()
@@ -1141,6 +1156,7 @@ if __name__ == "__main__":
     pipeline = Pipeline(
         star_name=config["star_name"],
         orbital_period=config["orbital_period"],
+        orbital_pdot=config["orbital_pdot"],
         working_dir=config["working_dir"],
         auto_resolve=config["auto_resolve"],
         reprocess=config["reprocess"],
