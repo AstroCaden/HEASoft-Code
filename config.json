@@ -1,0 +1,31 @@
+{
+    "star_name": "Her_X-1",
+    "orbital_period": 1.700167590,
+    "orbital_pdot": 2e-11,
+    "reference_epoch": 46359.871940,
+    "working_dir": "working",
+    "run_nicer_l3": false,
+    "ObsID_to_exclude": [],
+    "ObsID_specifically_chosen": [],
+    "number_of_datasets": 100,
+    "concurrent_downloads": 20,
+    "lower_energy_limit": 30,
+    "upper_energy_limit": 1200,
+    "bins": 60,
+    "epoch_range": 6000000000,
+    "auto_resolve": true,
+    "reprocess": false,
+    "flare_filtering": true,
+    "run_steps": {     
+        "download": false,
+        "process_l2": true,
+        "barycorr": true,
+        "barycurve": true,
+        "remove_background": true,
+        "statistics": true,
+        "time_plot": true,
+        "unbinned_plot": true,
+        "binned_plot": true,
+        "stacked_plot": true
+    }
+}

@@ -1,0 +1,11 @@
+xselect
+set instrument NICER
+read events
+{event_dir}
+{event_file}
+
+filter pha_cutoff {filter_min} {filter_max}
+
+extract curve exposure=0.0
+save curve {output_curve} clobber=yes
+exit
