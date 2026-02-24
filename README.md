@@ -3,6 +3,8 @@ Modular pipeline created to run NICER data through HEASoft.
 
 HEASoft + NICER tools + nibackgen3C50 must be installed and on your PATH for the program to run.
 
+Initiate with `chmod +x run_pipeline.sh` and `chmod +x CMD_files/*.sh`.
+
 Run program as `./run_pipeline.sh` in BASH.
 
 ## Config parameters
