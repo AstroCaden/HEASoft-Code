@@ -65,7 +65,7 @@ class Pipeline:
         
         
         if working_dir == "working":
-            self.base_dir = Path.cwd()
+            self.base_dir = Path(__file__).resolve().parent.parent
         else:
             path = Path(working_dir)
             if path.exists():
