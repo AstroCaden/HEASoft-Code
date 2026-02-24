@@ -3,6 +3,8 @@ Modular pipeline created to run NICER data through HEASoft.
 
 HEASoft + NICER tools + nibackgen3C50 must be installed and on your PATH for the program to run.
 
+Run program as `./run_pipeline.sh` in BASH.
+
 ## Config parameters
 
 - **star_name**: Name of the target you wish to analyse.
