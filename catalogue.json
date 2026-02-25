@@ -1,0 +1,29 @@
+{
+  "Cen_X-3": {
+    "orbital_period": 2.08713936,
+    "orbital_pdot": 1.8e-6,
+    "reference_epoch": 41475.0,
+    "reference": "Nagase 1989 PASJ 41 1"
+  },
+
+  "EXO_0748-676": {
+    "orbital_period": 0.15933776231,
+    "orbital_pdot": 1.18e-11,
+    "reference_epoch": 46111.0750313,
+    "reference": "Wolff et al. 2009 ApJS 183 156"
+  },
+
+  "Her_X-1": {
+    "orbital_period": 1.700167590,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 46359.871940,
+    "reference": "Deeter et al. 1991 ApJ 383 324"
+  },
+
+  "XSS_J12270-4859": {
+    "orbital_period": 0.2880195,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 55000.0,
+    "reference": "de Martino et al. 2014 MNRAS 444 3004"
+  }
+}
