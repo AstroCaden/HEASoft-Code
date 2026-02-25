@@ -15,6 +15,9 @@ def Background_Subtraction(self):
     self.images = self.star_folder / "Outputs"
     self.images.mkdir(parents=True, exist_ok=True)
 
+    bkg_dir = self.images / "Background_Files"
+    bkg_dir.mkdir(parents=True, exist_ok=True)
+
     for obsid in self.ObsID_array:
 
         light_curve_file = self._Light_Curve_File(obsid)
@@ -68,7 +71,7 @@ def Background_Subtraction(self):
                 self._Failed_ObsID(obsid, f"nibackgen3C50 failed ({result.returncode})\n{reason}", where="background")
                 continue
 
-        output_file = self.images / f"netlc_{obsid}.npz"
+        output_file = bkg_dir / f"netlc_{obsid}.npz"
 
         with fits.open(light_curve_file) as hdul:
             sdat = hdul[1].data
