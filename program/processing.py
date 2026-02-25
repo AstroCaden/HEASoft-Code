@@ -115,7 +115,7 @@ def Barycorr(self):
         log_dir = self.star_folder / "Outputs" / "Barycorr_Logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"barycorr_{obsid}.log"
-
+        self.logger.info(f"[{datetime.now()strftime('%H:%M:%S')}] - Barycorr processing {obsid}")
         with open(log_file, "w") as f:
             p = subprocess.run(
                 [
@@ -132,7 +132,7 @@ def Barycorr(self):
                 text=True
             )
 
-            
+        self.logger.info(f"[{datetime.now()strftime('%H:%M:%S')}] - Barycorr complete for {obsid}")
         if p.returncode != 0:
             reason = (p.stderr or p.stdout or "unknown error").strip()
             self._Failed_ObsID(obsid, reason, where="barycorr")
