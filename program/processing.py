@@ -112,21 +112,27 @@ def Barycorr(self):
             continue
 
         cmd_barycorr = self.base_dir / "CMD_files" / "cmd_barycorr.sh"
+        log_dir = self.star_folder / "Outputs" / "Barycorr_Logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"barycorr_{obsid}.log"
 
-        p = subprocess.run(
-            [
-                cmd_barycorr.as_posix(),
-                infile.as_posix(),
-                outfile.as_posix(),
-                orbitf.as_posix(),
-                str(self.RA),
-                str(self.Dec),
-                barytime,
-            ],
-            capture_output=True,
-            text=True
-        )
+        with open(log_file, "w") as f:
+            p = subprocess.run(
+                [
+                    cmd_barycorr.as_posix(),
+                    infile.as_posix(),
+                    outfile.as_posix(),
+                    orbitf.as_posix(),
+                    str(self.RA),
+                    str(self.Dec),
+                    barytime,
+                ],
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
 
+            
         if p.returncode != 0:
             reason = (p.stderr or p.stdout or "unknown error").strip()
             self._Failed_ObsID(obsid, reason, where="barycorr")
