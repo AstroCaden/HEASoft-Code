@@ -18,8 +18,8 @@ Run program as `./run_pipeline.sh` in BASH.
 - **ObsID_specifically_chosen**: ObsIDs to use (downloads only these). Example: `["0060010101", "0060010102"]`.
 - **number_of_datasets**: How many datasets wanted in total. If fewer exist, the program downloads what’s available.
 - **concurrent_downloads**: Number of dataset to download concurrently. Recommended 5-10.
-- **lower_energy_limit**: Lower energy cut in PI (1 PI = 0.01 keV).
-- **upper_energy_limit**: Upper energy cut in PI (1 PI = 0.01 keV).
+- **lower_energy_limit**: Lower energy cut (in PI) (1 PI = 0.01 keV).
+- **upper_energy_limit**: Upper energy cut (in PI) (1 PI = 0.01 keV).
 - **bins**: Number of bins used for binned plots.
 - **epoch_range**: Epoch width (days) used for stacking.
 - **auto_resolve**: `true` to backtrack and run missing prerequisites automatically.
