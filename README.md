@@ -42,6 +42,7 @@ Run program as `./run_pipeline.sh` in BASH.
 ---
 
 ## Catalogue Data
+Note: Catalogue currently contains minimal enteries, therefore the user may need to input their own data into this for use. 
 - **orbital_period**: Orbital period of object (in days).
 - **orbital_pdot**: First time derivative of orbital period (in s/s). Use `0.0` if not wanted.
 - **reference_epoch**: Phase-zero epoch (**T0**) in MJD (e.g. Tasc / inferior conjunction from literature).
