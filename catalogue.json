@@ -1,29 +1,57 @@
 {
-  "Cen_X-3": {
-    "orbital_period": 2.08713936,
-    "orbital_pdot": 1.8e-6,
-    "reference_epoch": 41475.0,
-    "reference": "Nagase 1989 PASJ 41 1"
-  },
-
-  "EXO_0748-676": {
-    "orbital_period": 0.15933776231,
-    "orbital_pdot": 1.18e-11,
-    "reference_epoch": 46111.0750313,
-    "reference": "Wolff et al. 2009 ApJS 183 156"
-  },
-
-  "Her_X-1": {
-    "orbital_period": 1.700167590,
+  "MAXI_J1820+070": {
+    "orbital_period": 0.68549,
     "orbital_pdot": 0.0,
-    "reference_epoch": 46359.871940,
-    "reference": "Deeter et al. 1991 ApJ 383 324"
+    "reference_epoch": 58000.0,
+    "reference": "Torres et al. 2019 ApJ 882 L21"
   },
 
-  "XSS_J12270-4859": {
-    "orbital_period": 0.2880195,
+  "Aql_X-1": {
+    "orbital_period": 0.7895126,
     "orbital_pdot": 0.0,
-    "reference_epoch": 55000.0,
-    "reference": "de Martino et al. 2014 MNRAS 444 3004"
+    "reference_epoch": 50000.0,
+    "reference": "Chevalier & Ilovaisky 1998 A&A 330 201"
+  },
+
+  "4U_1636-536": {
+    "orbital_period": 0.15804693,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 50123.00944,
+    "reference": "Giles et al. 2002 ApJ 568 279"
+  },
+
+  "4U_1735-44": {
+    "orbital_period": 0.19383222,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 50123.00944,
+    "reference": "Casares et al. 2006 MNRAS 373 1235"
+  },
+
+  "Sco_X-1": {
+    "orbital_period": 0.787313,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 40080.63,
+    "reference": "Gottlieb et al. 1975 ApJ 195 L33"
+  },
+
+  "Cyg_X-2": {
+    "orbital_period": 9.844766,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 50000.0,
+    "reference": "Casares et al. 2010 MNRAS 401 2517"
+  },
+
+  "GX_9+9": {
+    "orbital_period": 0.1747267,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 53382.959,
+    "reference": "Cornelisse et al. 2007 MNRAS 375 1463"
+  },
+
+  "XTE_J2123-058": {
+    "orbital_period": 0.24821,
+    "orbital_pdot": 0.0,
+    "reference_epoch": 51000.0,
+    "reference": "Casares et al. 2002 MNRAS 329 29"
   }
 }
