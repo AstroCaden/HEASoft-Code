@@ -7,12 +7,11 @@ Initiate with `chmod +x run_pipeline.sh` and `chmod +x CMD_files/*.sh`.
 
 Run program as `./run_pipeline.sh` in BASH.
 
+---
+
 ## Config parameters
 
 - **star_name**: Name of the target you wish to analyse.
-- **orbital_period**: Orbital period of object (in days).
-- **orbital_pdot**: First time derivative of orbital period (in s/s). Use `0.0` if not wanted.
-- **reference_epoch**: Phase-zero epoch (**T0**) in MJD (e.g. Tasc / inferior conjunction from literature).
 - **working_dir**: Directory for the program to operate in. Use `"working"` for the directory containing the `.py` file, or provide an absolute path.
 - **run_nicer_l3**: `true` to run `nicerl3` instead of `nicerl2 + XSELECT`.
 - **ObsID_to_exclude**: ObsIDs to skip. Example: `["0060010101", "0060010102"]`.
@@ -27,7 +26,7 @@ Run program as `./run_pipeline.sh` in BASH.
 - **reprocess**: `true` to regenerate files even if they already exist.
 - **flare_filtering**: `true` to apply simple 3σ clipping on count rate to flag/remove outliers (toy model).
 
-## run_steps (set each to `true` or `false`)
+### run_steps (set each to `true` or `false`)
 
 - **download**: Downloads datasets based on target selection rules.
 - **process_l2**: Runs `nicerl2` processing.
@@ -39,6 +38,14 @@ Run program as `./run_pipeline.sh` in BASH.
 - **unbinned_plot**: Phase-folded (unbinned) plot for each ObsID.
 - **binned_plot**: Phase-folded (binned) plot for each ObsID.
 - **stacked_plot**: Stacks binned plots into epoch groups defined by `epoch_range`.
+
+---
+
+## Catalogue Data
+- **orbital_period**: Orbital period of object (in days).
+- **orbital_pdot**: First time derivative of orbital period (in s/s). Use `0.0` if not wanted.
+- **reference_epoch**: Phase-zero epoch (**T0**) in MJD (e.g. Tasc / inferior conjunction from literature).
+- **refernce**: Reference(s) for the values described above.
 
 ---
 
