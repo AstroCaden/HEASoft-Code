@@ -1,8 +1,5 @@
 {
     "star_name": "Her_X-1",
-    "orbital_period": 1.700167590,
-    "orbital_pdot": 2e-11,
-    "reference_epoch": 46359.871940,
     "working_dir": "working",
     "run_nicer_l3": false,
     "ObsID_to_exclude": [],
